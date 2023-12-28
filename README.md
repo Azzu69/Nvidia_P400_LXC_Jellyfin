@@ -124,3 +124,97 @@ Thu Dec 14 17:54:41 2023
 |  No running processes found                                                 |
 +-----------------------------------------------------------------------------+
 ```
+
+9 - Installation sur le LXC
+
+Nous pouvons voir ci dessus que le pilote utilisé est le 525.147.05.
+On va donc reprendre ce dernier.
+
+```ssh
+wget http://us.download.nvidia.com/XFree86/Linux-x86_64/525.147.05/NVIDIA-Linux-x86_64-525.147.05.run
+```
+* URL modifiable (remplacer la version du pilote par le nouveau)
+
+Exécuter l'installation sans le module noyau :
+
+```ssh
+chmod +x NVIDIA-Linux-x86_64-525.147.05.run
+sudo ./NVIDIA-Linux-x86_64-525.147.05.run --no-kernel-module
+```
+
+10 - Modification de la config LXC
+
+Maintenant que les pilotes sont installés, nous devons passer par le GPU.
+Arrêtez le conteneur et ajoutez les éléments suivants à la configuration de votre conteneur /etc/pve/lxc/###.conf
+En veillant à modifier les nombres que nous avons enregistrés précédemment s'ils diffèrent :
+
+```ssh
+#<div align='center'><img src='https%3A//jellyfin.org/images/logo.svg'/></a>
+## LXC
+#</div>
+# Autoriser l'acc%C3%A8s au groupe de contr%C3%B4le 
+# Passer par les fichiers de p%C3%A9riph%C3%A9rique 
+arch: amd64
+cores: 6
+features: nesting=1
+hostname: jellyfin
+memory: 8192
+net0: name=eth0,bridge=vmbr0,gw=192.168.1.254,hwaddr=BC:24:11:82:D9:49,ip=192.168.1.50/24,type=veth
+onboot: 1
+ostype: ubuntu
+rootfs: ssd-vm:vm-103-disk-0,size=8G
+startup: up=120
+swap: 2048
+tags:  
+lxc.cgroup2.devices.allow: a
+lxc.cap.drop: 
+lxc.cgroup2.devices.allow: c 188:* rwm
+lxc.cgroup2.devices.allow: c 189:* rwm
+lxc.cgroup2.devices.allow: c 195:* rwm
+lxc.cgroup2.devices.allow: c 243:* rwm
+lxc.mount.entry: /dev/serial/by-id  dev/serial/by-id  none bind,optional,create=dir
+lxc.mount.entry: /dev/ttyUSB0       dev/ttyUSB0       none bind,optional,create=file
+lxc.mount.entry: /dev/ttyUSB1       dev/ttyUSB1       none bind,optional,create=file
+lxc.mount.entry: /dev/ttyACM0       dev/ttyACM0       none bind,optional,create=file
+lxc.mount.entry: /dev/ttyACM1       dev/ttyACM1       none bind,optional,create=file
+lxc.cgroup2.devices.allow: c 226:0 rwm
+lxc.cgroup2.devices.allow: c 226:128 rwm
+lxc.cgroup2.devices.allow: c 29:0 rwm
+lxc.cgroup2.devices.allow: c 509:* rwm
+lxc.cgroup2.devices.allow: c 226:* rwm
+lxc.mount.entry: /dev/fb0 dev/fb0 none bind,optional,create=file
+lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir
+lxc.mount.entry: /dev/dri/renderD128 dev/dri/renderD128 none bind,optional,create=file
+lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file
+lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file
+lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file
+lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file
+lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file
+```
+
+11 - Démarrage du LXC
+
+Démarrez le conteneur et confirmez le relais effectué en exécutant ls -al /dev/nvidia*et ls -al /dev/dri/*. 
+De plus, nvidia-smivous devriez maintenant afficher un résultat identique à celui de l'hôte Proxmox :
+
+```ssh
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 525.147.05   Driver Version: 525.147.05   CUDA Version: 12.0     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|                               |                      |               MIG M. |
+|===============================+======================+======================|
+|   0  Quadro P400         On   | 00000000:01:00.0 Off |                  N/A |
+| 34%   33C    P8    N/A /  30W |      1MiB /  2048MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+                                                                               
++-----------------------------------------------------------------------------+
+| Processes:                                                                  |
+|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
+|        ID   ID                                                   Usage      |
+|=============================================================================|
+|  No running processes found                                                 |
++-----------------------------------------------------------------------------+
+```
